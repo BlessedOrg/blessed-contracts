@@ -34,10 +34,10 @@ contract DeployFreeTicket is Script {
         );
 
         // Whitelist the two wallets
-        address[] memory whitelistAddresses = new address[](2);
-        whitelistAddresses[0] = wallet1;
-        whitelistAddresses[1] = wallet2;
-        freeTicket.updateWhitelist(whitelistAddresses, true);
+        FreeTicket.Whitelist[] memory whitelistUpdates = new FreeTicket.Whitelist[](2);
+        whitelistUpdates[0] = FreeTicket.Whitelist(wallet1, true);
+        whitelistUpdates[1] = FreeTicket.Whitelist(wallet2, true);
+        freeTicket.updateWhitelist(whitelistUpdates);
 
         // Prepare distribution data
         FreeTicket.Distribution[] memory distributions = new FreeTicket.Distribution[](2);

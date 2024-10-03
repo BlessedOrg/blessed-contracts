@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
-import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
+import "forge-std/console.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
 import "../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
-import "forge-std/console.sol";
 
 contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
     using Strings for uint256;
@@ -20,11 +15,11 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
     string public symbol;
     uint256 public initialSupply;
     uint256 public maxSupply;
+    uint256 public currentSupply;
     bool public transferable;
     bool public whitelistOnly;
 
     uint256 public nextTokenId = 1;
-    uint256 public currentSupply;
 
     mapping(address => bool) public isWhitelisted;
 
@@ -32,6 +27,13 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
         address recipient;
         uint256 amount;
     }
+
+    struct Whitelist {
+        address user;
+        bool status;
+    }
+
+    event SupplyUpdated(uint256 newSupply);
 
     constructor(
         address owner,
@@ -43,15 +45,14 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
         bool _transferable,
         bool _whitelistOnly
     ) ERC1155(baseURI) Ownable(owner) {
+        require(_initialSupply <= _maxSupply, "Initial supply exceeds max supply");
         name = _name;
         symbol = _symbol;
         initialSupply = _initialSupply;
         maxSupply = _maxSupply;
+        currentSupply = _initialSupply;
         transferable = _transferable;
         whitelistOnly = _whitelistOnly;
-        currentSupply = 0;
-
-        // _mintSequential(owner, _initialSupply);
     }
 
     function setURI(string memory newuri) public onlyOwner {
@@ -62,14 +63,17 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
         return string(abi.encodePacked(uri(_tokenId), _tokenId.toString()));
     }
 
-    function increaseSupply(uint256 _amount) public onlyOwner {
-        require(currentSupply + _amount <= maxSupply, "Exceeds max supply");
-        _mintSequential(msg.sender, _amount);
+    function updateSupply(uint256 _additionalSupply) public onlyOwner {
+        require(currentSupply + _additionalSupply <= maxSupply, "Exceeds max supply");
+        uint256 newSupply = currentSupply + _additionalSupply;
+        currentSupply = newSupply;
+        emit SupplyUpdated(newSupply);
     }
 
-    function updateWhitelist(address[] memory _addresses, bool _status) public onlyOwner {
-        for (uint256 i = 0; i < _addresses.length; i++) {
-            isWhitelisted[_addresses[i]] = _status;
+    function updateWhitelist(Whitelist[] memory _whitelistUpdates) public onlyOwner {
+        for (uint256 i = 0; i < _whitelistUpdates.length; i++) {
+            Whitelist memory update = _whitelistUpdates[i];
+            isWhitelisted[update.user] = update.status;
         }
     }
 
@@ -78,14 +82,21 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
     }
 
     function distribute(Distribution[] memory _distributions) public onlyOwner {
+        uint256 amountToBeDistributed = 0;
         for (uint256 i = 0; i < _distributions.length; i++) {
             Distribution memory dist = _distributions[i];
             if (whitelistOnly) {
                 require(isWhitelisted[dist.recipient], "Recipient not whitelisted");
             }
-            require(currentSupply + dist.amount <= maxSupply, "Exceeds max supply");
+            amountToBeDistributed += dist.amount;
+        }
+        require(currentSupply + amountToBeDistributed <= maxSupply, "Exceeds max supply");
+
+        for (uint256 i = 0; i < _distributions.length; i++) {
+            Distribution memory dist = _distributions[i];
             _mintSequential(dist.recipient, dist.amount);
         }
+        currentSupply -= amountToBeDistributed;
     }
 
     function _mintSequential(address to, uint256 amount) internal {
@@ -94,16 +105,9 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
             console.log("Minted token ID", nextTokenId, "to", to);
             nextTokenId++;
         }
-        currentSupply += amount;
-        console.log("Current supply after mint:", currentSupply);
     }
 
-    function _update(
-        address from,
-        address to,
-        uint256[] memory ids,
-        uint256[] memory values
-    ) internal override(ERC1155, ERC1155Supply) {
+    function _update(address from, address to, uint256[] memory ids, uint256[] memory values) internal override(ERC1155, ERC1155Supply) {
         super._update(from, to, ids, values);
 
         if (from == address(0) || to == address(0)) {

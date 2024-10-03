@@ -35,11 +35,11 @@ contract FreeTicketTest is Test {
         vm.startPrank(owner);  // Set msg.sender to owner for the next calls
 
         // Add three wallets to whitelist
-        address[] memory whitelistAddresses = new address[](3);
-        whitelistAddresses[0] = user1;
-        whitelistAddresses[1] = user2;
-        whitelistAddresses[2] = user3;
-        freeTicket.updateWhitelist(whitelistAddresses, true);
+        FreeTicket.Whitelist[] memory whitelistUpdates = new FreeTicket.Whitelist[](3);
+        whitelistUpdates[0] = FreeTicket.Whitelist(user1, true);
+        whitelistUpdates[1] = FreeTicket.Whitelist(user2, true);
+        whitelistUpdates[2] = FreeTicket.Whitelist(user3, true);
+        freeTicket.updateWhitelist(whitelistUpdates);
 
         // Prepare distribution data
         FreeTicket.Distribution[] memory distributions = new FreeTicket.Distribution[](3);
