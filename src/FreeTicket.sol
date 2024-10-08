@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/console.sol";
-import "../lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
+import "../lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
+import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
+import "../lib/openzeppelin-contracts/contracts/metatx/ERC2771Context.sol";
 import "../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "forge-std/console.sol";
 
-contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
+contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771Context {
     using Strings for uint256;
 
     string public name;
@@ -44,7 +45,7 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
         uint256 _maxSupply,
         bool _transferable,
         bool _whitelistOnly
-    ) ERC1155(baseURI) Ownable(owner) {
+    ) ERC1155(baseURI) Ownable(owner) ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
         require(_initialSupply <= _maxSupply, "Initial supply exceeds max supply");
         name = _name;
         symbol = _symbol;
@@ -90,6 +91,7 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
             }
             amountToBeDistributed += dist.amount;
         }
+        require(currentSupply >= amountToBeDistributed, "Exceeds current supply");
         require(currentSupply + amountToBeDistributed <= maxSupply, "Exceeds max supply");
 
         for (uint256 i = 0; i < _distributions.length; i++) {
@@ -119,7 +121,20 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
         }
 
         if (whitelistOnly) {
+            require(isWhitelisted[_msgSender()], "Sender not whitelisted");
             require(isWhitelisted[to], "Recipient not whitelisted");
         }
+    }
+
+    function _msgSender() internal view virtual override(Context, ERC2771Context) returns (address) {
+        return ERC2771Context._msgSender();
+    }
+
+    function _msgData() internal view virtual override(Context, ERC2771Context) returns (bytes calldata) {
+        return ERC2771Context._msgData();
+    }
+
+    function _contextSuffixLength() internal view virtual override(Context, ERC2771Context) returns (uint256) {
+        return ERC2771Context._contextSuffixLength();
     }
 }
