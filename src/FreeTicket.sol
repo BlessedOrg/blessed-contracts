@@ -2,14 +2,16 @@
 pragma solidity ^0.8.20;
 
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import "../lib/openzeppelin-contracts/contracts/metatx/ERC2771Context.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
-import "../lib/openzeppelin-contracts/contracts/metatx/ERC2771Context.sol";
+import "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import "../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "forge-std/console.sol";
 
 contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771Context {
+    using EnumerableSet for EnumerableSet.UintSet;
     using Strings for uint256;
 
     string public name;
@@ -19,9 +21,8 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771
     uint256 public currentSupply;
     bool public transferable;
     bool public whitelistOnly;
-
     uint256 public nextTokenId = 1;
-
+    mapping(address => EnumerableSet.UintSet) private userTokens;
     mapping(address => bool) public isWhitelisted;
 
     struct Distribution {
@@ -109,8 +110,29 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771
         }
     }
 
+    function getTokensByUser(address user) public view returns (uint256[] memory) {
+        return userTokens[user].values();
+    }
+
+    function userHasToken(address user, uint256 tokenId) public view returns (bool) {
+        return userTokens[user].contains(tokenId);
+    }
+
     function _update(address from, address to, uint256[] memory ids, uint256[] memory values) internal override(ERC1155, ERC1155Supply) {
         super._update(from, to, ids, values);
+
+        for (uint256 i = 0; i < ids.length; i++) {
+            if (values[i] > 0) {
+                if (from != address(0)) {
+                    if (balanceOf(from, ids[i]) == values[i]) {
+                        userTokens[from].remove(ids[i]);
+                    }
+                }
+                if (to != address(0)) {
+                    userTokens[to].add(ids[i]);
+                }
+            }
+        }
 
         if (from == address(0) || to == address(0)) {
             return;
