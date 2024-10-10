@@ -45,7 +45,7 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771
         uint256 _maxSupply,
         bool _transferable,
         bool _whitelistOnly
-    ) ERC1155(baseURI) Ownable(owner) ERC2771Context(0xd8253782c45a12053594b9deB72d8e8aB2Fca54c) {
+    ) ERC1155(baseURI) Ownable(owner) ERC2771Context(0x839320b787DbB268dCF0170302b16b25168B6bA7) {
         require(_initialSupply <= _maxSupply, "Initial supply exceeds max supply");
         name = _name;
         symbol = _symbol;
