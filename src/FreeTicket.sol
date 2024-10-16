@@ -12,6 +12,7 @@ import "forge-std/console.sol";
 
 contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771Context {
     using EnumerableSet for EnumerableSet.UintSet;
+    using EnumerableSet for EnumerableSet.AddressSet;
     using Strings for uint256;
 
     string public name;
@@ -23,6 +24,7 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771
     bool public whitelistOnly;
     uint256 public nextTokenId = 1;
     mapping(address => EnumerableSet.UintSet) private userTokens;
+    EnumerableSet.AddressSet private ticketHolders;
     mapping(address => bool) public isWhitelisted;
 
     struct Distribution {
@@ -110,6 +112,21 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771
         }
     }
 
+    function getTicketHolders(uint256 start, uint256 pageSize) public view returns (address[] memory) {
+        uint256 totalHolders = ticketHolders.length();
+        uint256 end = start + pageSize;
+        if (end > totalHolders) {
+            end = totalHolders;
+        }
+
+        address[] memory holders = new address[](end - start);
+        for (uint256 i = start; i < end; i++) {
+            holders[i - start] = ticketHolders.at(i);
+        }
+
+        return holders;
+    }
+
     function getTokensByUser(address user) public view returns (uint256[] memory) {
         return userTokens[user].values();
     }
@@ -124,12 +141,16 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771
         for (uint256 i = 0; i < ids.length; i++) {
             if (values[i] > 0) {
                 if (from != address(0)) {
-                    if (balanceOf(from, ids[i]) == values[i]) {
+                    if (balanceOf(from, ids[i]) == 0) {
                         userTokens[from].remove(ids[i]);
+                        if (userTokens[from].length() == 0) {
+                            ticketHolders.remove(from);
+                        }
                     }
                 }
                 if (to != address(0)) {
                     userTokens[to].add(ids[i]);
+                    ticketHolders.add(to);
                 }
             }
         }
