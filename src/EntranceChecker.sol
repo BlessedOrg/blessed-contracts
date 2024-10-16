@@ -20,6 +20,9 @@ contract EntranceChecker is Ownable {
     mapping(address => bool) private hasEntered;
     mapping(uint256 => bool) private usedTickets;
 
+    event EntryRegistered(address indexed sender, uint256 timestamp, uint256 ticketId);
+
+
     constructor(address _ticketAddress, address _owner) Ownable(_owner){
         ticketAddress = _ticketAddress;
     }
@@ -35,6 +38,7 @@ contract EntranceChecker is Ownable {
         entries.push(Entry(msg.sender, block.timestamp, _ticketId));
         hasEntered[msg.sender] = true;
         usedTickets[_ticketId] = true;
+        emit EntryRegistered(msg.sender, block.timestamp, _ticketId);
     }
 
     function hasEntry(address _address) external view returns (bool) {
