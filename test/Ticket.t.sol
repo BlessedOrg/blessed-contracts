@@ -2,10 +2,10 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/FreeTicket.sol";
+import "../src/Ticket.sol";
 
-contract FreeTicketTest is Test {
-    FreeTicket public freeTicket;
+contract TicketTest is Test {
+    Ticket public freeTicket;
     address public owner;
     address public user1;
     address public user2;
@@ -18,11 +18,14 @@ contract FreeTicketTest is Test {
         user3 = vm.addr(4);
 
         vm.startPrank(owner);  // Set msg.sender to owner for the next calls
-        freeTicket = new FreeTicket(
+        freeTicket = new Ticket(
+            owner,
             owner,
             "https://ipfs.io/ipfs/",
             "Base Sepolia Ticket",
             "BST",
+            0xbF57aEA664aEAf70C9C82fF1355739CDf917119d,
+            1000,
             0,  // Set initialSupply to 0 for this test
             10000,
             true,  // Set transferable to true
@@ -35,17 +38,17 @@ contract FreeTicketTest is Test {
         vm.startPrank(owner);  // Set msg.sender to owner for the next calls
 
         // Add three wallets to whitelist
-        FreeTicket.Whitelist[] memory whitelistUpdates = new FreeTicket.Whitelist[](3);
-        whitelistUpdates[0] = FreeTicket.Whitelist(user1, true);
-        whitelistUpdates[1] = FreeTicket.Whitelist(user2, true);
-        whitelistUpdates[2] = FreeTicket.Whitelist(user3, true);
+        Ticket.Whitelist[] memory whitelistUpdates = new Ticket.Whitelist[](3);
+        whitelistUpdates[0] = Ticket.Whitelist(user1, true);
+        whitelistUpdates[1] = Ticket.Whitelist(user2, true);
+        whitelistUpdates[2] = Ticket.Whitelist(user3, true);
         freeTicket.updateWhitelist(whitelistUpdates);
 
         // Prepare distribution data
-        FreeTicket.Distribution[] memory distributions = new FreeTicket.Distribution[](3);
-        distributions[0] = FreeTicket.Distribution(user1, 1);
-        distributions[1] = FreeTicket.Distribution(user2, 2);
-        distributions[2] = FreeTicket.Distribution(user3, 3);
+        Ticket.Distribution[] memory distributions = new Ticket.Distribution[](3);
+        distributions[0] = Ticket.Distribution(user1, 1);
+        distributions[1] = Ticket.Distribution(user2, 2);
+        distributions[2] = Ticket.Distribution(user3, 3);
 
         // Call distribute
         freeTicket.distribute(distributions);

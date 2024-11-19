@@ -9,12 +9,16 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155
 import "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import "../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "forge-std/console.sol";
+import "../interfaces/IERC20.sol";
 
-contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771Context {
+contract Ticket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
     using EnumerableSet for EnumerableSet.UintSet;
     using EnumerableSet for EnumerableSet.AddressSet;
     using Strings for uint256;
 
+    address public erc20Address;
+    IERC20 public erc20Token;
+    address public ownerSmartWallet;
     string public name;
     string public symbol;
     uint256 public initialSupply;
@@ -23,6 +27,7 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771
     bool public transferable;
     bool public whitelistOnly;
     uint256 public nextTokenId = 1;
+    uint256 public price = 0;
     mapping(address => EnumerableSet.UintSet) private userTokens;
     EnumerableSet.AddressSet private ticketHolders;
     mapping(address => bool) public isWhitelisted;
@@ -40,23 +45,38 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771
     event SupplyUpdated(uint256 newSupply);
 
     constructor(
-        address owner,
-        string memory baseURI,
+        address _owner,
+        address _ownerSmartWallet,
+        string memory _baseURI,
         string memory _name,
         string memory _symbol,
+        address _erc20Address,
+        uint256 _price,
         uint256 _initialSupply,
         uint256 _maxSupply,
         bool _transferable,
         bool _whitelistOnly
-    ) ERC1155(baseURI) Ownable(owner) ERC2771Context(0x839320b787DbB268dCF0170302b16b25168B6bA7) {
+    ) ERC1155(_baseURI) Ownable(_owner) {
         require(_initialSupply <= _maxSupply, "Initial supply exceeds max supply");
+        ownerSmartWallet = _ownerSmartWallet;
         name = _name;
         symbol = _symbol;
+        erc20Address = _erc20Address;
+        erc20Token = IERC20(_erc20Address);
+        price = _price;
         initialSupply = _initialSupply;
         maxSupply = _maxSupply;
         currentSupply = _initialSupply;
         transferable = _transferable;
         whitelistOnly = _whitelistOnly;
+    }
+
+    function _checkOwner() internal view override {
+        require(owner() == _msgSender() || ownerSmartWallet == _msgSender(), "Not owner");
+    }
+
+    function setSmartWallet(address _smartWallet) external onlyOwner {
+        ownerSmartWallet = _smartWallet;
     }
 
     function setURI(string memory newuri) public onlyOwner {
@@ -83,6 +103,24 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771
 
     function setTransferable(bool _transferable) public onlyOwner {
         transferable = _transferable;
+    }
+
+    function get() external {
+        address caller = msg.sender;
+
+        if (price == 0) {
+            _mint(caller, nextTokenId, 1, "");
+        } else {
+            uint256 callerBalance = erc20Token.balanceOf(caller);
+            require(callerBalance >= price, "Insufficient balance");
+
+            uint256 allowedAmount = erc20Token.allowance(caller, address(this));
+            require(allowedAmount >= price, "Insufficient allowance");
+
+            require(erc20Token.transferFrom(caller, ownerSmartWallet, price), "Transfer failed");
+            _mint(caller, nextTokenId, 1, "");
+        }
+        nextTokenId++;
     }
 
     function distribute(Distribution[] memory _distributions) public onlyOwner {
@@ -167,17 +205,5 @@ contract FreeTicket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply, ERC2771
             require(isWhitelisted[_msgSender()], "Sender not whitelisted");
             require(isWhitelisted[to], "Recipient not whitelisted");
         }
-    }
-
-    function _msgSender() internal view virtual override(Context, ERC2771Context) returns (address) {
-        return ERC2771Context._msgSender();
-    }
-
-    function _msgData() internal view virtual override(Context, ERC2771Context) returns (bytes calldata) {
-        return ERC2771Context._msgData();
-    }
-
-    function _contextSuffixLength() internal view virtual override(Context, ERC2771Context) returns (uint256) {
-        return ERC2771Context._contextSuffixLength();
     }
 }
