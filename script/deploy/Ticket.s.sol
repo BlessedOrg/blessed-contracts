@@ -21,20 +21,24 @@ contract DeployTicket is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy the FreeTicket contract
-        Ticket freeTicket = new Ticket(
-            deployer,
-            deployer,
-            "https://ipfs.io/ipfs/",
-            "Base Sepolia Ticket",
-            "A test ticket for Base Sepolia",
-            0xbF57aEA664aEAf70C9C82fF1355739CDf917119d,
-            1000,
-            10000,
-            100000,
-            true,  // Set transferable to true
-            true   // Set whitelistOnly to true
-        );
+
+        Library.TicketConstructor memory config = Library.TicketConstructor({
+            _owner: deployer,
+            _ownerSmartWallet: deployer,
+            _eventAddress: deployer,
+            _baseURI: "https://ipfs.io/ipfs/",
+            _name: "Base Sepolia Ticket",
+            _symbol: "A test ticket for Base Sepolia",
+            _erc20Address: 0xbF57aEA664aEAf70C9C82fF1355739CDf917119d,
+            _price: 1000,
+            _initialSupply: 10000,
+            _maxSupply: 100000,
+            _transferable: true,  // Set transferable to true
+            _whitelistOnly: true   // Set whitelistOnly to true
+        });
+
+        // Deploy the contract with the config struct
+        Ticket ticket = new Ticket(config);
 
         // Whitelist the two wallets
         // FreeTicket.Whitelist[] memory whitelistUpdates = new FreeTicket.Whitelist[](2);
@@ -52,7 +56,7 @@ contract DeployTicket is Script {
 
         vm.stopBroadcast();
 
-        console.log("FreeTicket deployed to:", address(freeTicket));
+        console.log("FreeTicket deployed to:", address(ticket));
         console.log("Tickets distributed to wallet1 and wallet2");
     }
 }

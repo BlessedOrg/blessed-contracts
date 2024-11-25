@@ -11,5 +11,6 @@ DEST_DIR="../blessed-api-new/src/common/lib/contracts/artifacts"
 cp "$SRC_DIR/Ticket.sol/Ticket.json" "$DEST_DIR/tickets.json"
 cp "$SRC_DIR/EntranceChecker.sol/EntranceChecker.json" "$DEST_DIR/entrance.json"
 cp "$SRC_DIR/USDC.sol/USDC.json" "$DEST_DIR/erc20.json"
+cp "$SRC_DIR/Event.sol/Event.json" "$DEST_DIR/event.json"
 
 echo "Files copied successfully."

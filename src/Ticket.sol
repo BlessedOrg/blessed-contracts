@@ -1,25 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "../interfaces/IERC20.sol";
 import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "../lib/openzeppelin-contracts/contracts/metatx/ERC2771Context.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
-import "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import "../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import "./Base.sol";
+import "./vendor/Library.sol";
 import "forge-std/console.sol";
-import "../interfaces/IERC20.sol";
 
-contract Ticket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
+contract Ticket is Base, ERC1155, ERC1155Burnable, ERC1155Supply {
     using EnumerableSet for EnumerableSet.UintSet;
     using EnumerableSet for EnumerableSet.AddressSet;
     using Strings for uint256;
 
+    address public eventAddress;
     address public erc20Address;
     IERC20 public erc20Token;
-    address public ownerSmartWallet;
-    string public name;
     string public symbol;
     uint256 public initialSupply;
     uint256 public maxSupply;
@@ -44,39 +45,23 @@ contract Ticket is ERC1155, Ownable, ERC1155Burnable, ERC1155Supply {
 
     event SupplyUpdated(uint256 newSupply);
 
-    constructor(
-        address _owner,
-        address _ownerSmartWallet,
-        string memory _baseURI,
-        string memory _name,
-        string memory _symbol,
-        address _erc20Address,
-        uint256 _price,
-        uint256 _initialSupply,
-        uint256 _maxSupply,
-        bool _transferable,
-        bool _whitelistOnly
-    ) ERC1155(_baseURI) Ownable(_owner) {
-        require(_initialSupply <= _maxSupply, "Initial supply exceeds max supply");
-        ownerSmartWallet = _ownerSmartWallet;
-        name = _name;
-        symbol = _symbol;
-        erc20Address = _erc20Address;
-        erc20Token = IERC20(_erc20Address);
-        price = _price;
-        initialSupply = _initialSupply;
-        maxSupply = _maxSupply;
-        currentSupply = _initialSupply;
-        transferable = _transferable;
-        whitelistOnly = _whitelistOnly;
-    }
-
-    function _checkOwner() internal view override {
-        require(owner() == _msgSender() || ownerSmartWallet == _msgSender(), "Not owner");
-    }
-
-    function setSmartWallet(address _smartWallet) external onlyOwner {
-        ownerSmartWallet = _smartWallet;
+    constructor
+    (Library.TicketConstructor memory config)
+    Base(config._owner, config._ownerSmartWallet, config._name)
+    ERC1155(config._baseURI) {
+        require(config._initialSupply <= config._maxSupply, "Initial supply exceeds max supply");
+        ownerSmartWallet = config._ownerSmartWallet;
+        name = config._name;
+        symbol = config._symbol;
+        eventAddress = config._eventAddress;
+        erc20Address = config._erc20Address;
+        erc20Token = IERC20(config._erc20Address);
+        price = config._price;
+        initialSupply = config._initialSupply;
+        maxSupply = config._maxSupply;
+        currentSupply = config._initialSupply;
+        transferable = config._transferable;
+        whitelistOnly = config._whitelistOnly;
     }
 
     function setURI(string memory newuri) public onlyOwner {
