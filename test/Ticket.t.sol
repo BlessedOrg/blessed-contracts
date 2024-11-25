@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "../src/Ticket.sol";
 
 contract TicketTest is Test {
-    Ticket public freeTicket;
+    Ticket public ticket;
     address public owner;
     address public user1;
     address public user2;
@@ -18,19 +18,25 @@ contract TicketTest is Test {
         user3 = vm.addr(4);
 
         vm.startPrank(owner);  // Set msg.sender to owner for the next calls
-        freeTicket = new Ticket(
-            owner,
-            owner,
-            "https://ipfs.io/ipfs/",
-            "Base Sepolia Ticket",
-            "BST",
-            0xbF57aEA664aEAf70C9C82fF1355739CDf917119d,
-            1000,
-            0,  // Set initialSupply to 0 for this test
-            10000,
-            true,  // Set transferable to true
-            true   // Set whitelistOnly to true
-        );
+
+        Library.TicketConstructor memory config = Library.TicketConstructor({
+            _owner: owner,
+            _ownerSmartWallet: owner,
+            _eventAddress: owner,
+            _baseURI: "https://ipfs.io/ipfs/",
+            _name: "Base Sepolia Ticket",
+            _symbol: "BST",
+            _erc20Address: 0xbF57aEA664aEAf70C9C82fF1355739CDf917119d,
+            _price: 1000,
+            _initialSupply: 0,  // Set initialSupply to 0 for this test
+            _maxSupply: 10000,
+            _transferable: true,  // Set transferable to true
+            _whitelistOnly: true   // Set whitelistOnly to true
+        });
+
+        // Deploy the contract with the config struct
+        ticket = new Ticket(config);
+
         vm.stopPrank();
     }
 
@@ -42,7 +48,7 @@ contract TicketTest is Test {
         whitelistUpdates[0] = Ticket.Whitelist(user1, true);
         whitelistUpdates[1] = Ticket.Whitelist(user2, true);
         whitelistUpdates[2] = Ticket.Whitelist(user3, true);
-        freeTicket.updateWhitelist(whitelistUpdates);
+        ticket.updateWhitelist(whitelistUpdates);
 
         // Prepare distribution data
         Ticket.Distribution[] memory distributions = new Ticket.Distribution[](3);
@@ -51,7 +57,7 @@ contract TicketTest is Test {
         distributions[2] = Ticket.Distribution(user3, 3);
 
         // Call distribute
-        freeTicket.distribute(distributions);
+        ticket.distribute(distributions);
 
         vm.stopPrank();
 
@@ -61,29 +67,29 @@ contract TicketTest is Test {
         uint256 user3Total = 0;
 
         // User1 checks
-        assertEq(freeTicket.balanceOf(user1, 1), 1, "User1 should have 1 ticket with ID 1");
-        user1Total += freeTicket.balanceOf(user1, 1);
+        assertEq(ticket.balanceOf(user1, 1), 1, "User1 should have 1 ticket with ID 1");
+        user1Total += ticket.balanceOf(user1, 1);
 
         // User2 checks
-        assertEq(freeTicket.balanceOf(user2, 2), 1, "User2 should have 1 ticket with ID 2");
-        assertEq(freeTicket.balanceOf(user2, 3), 1, "User2 should have 1 ticket with ID 3");
-        user2Total += freeTicket.balanceOf(user2, 2);
-        user2Total += freeTicket.balanceOf(user2, 3);
+        assertEq(ticket.balanceOf(user2, 2), 1, "User2 should have 1 ticket with ID 2");
+        assertEq(ticket.balanceOf(user2, 3), 1, "User2 should have 1 ticket with ID 3");
+        user2Total += ticket.balanceOf(user2, 2);
+        user2Total += ticket.balanceOf(user2, 3);
 
         // User3 checks
-        assertEq(freeTicket.balanceOf(user3, 4), 1, "User3 should have 1 ticket with ID 4");
-        assertEq(freeTicket.balanceOf(user3, 5), 1, "User3 should have 1 ticket with ID 5");
-        assertEq(freeTicket.balanceOf(user3, 6), 1, "User3 should have 1 ticket with ID 6");
-        user3Total += freeTicket.balanceOf(user3, 4);
-        user3Total += freeTicket.balanceOf(user3, 5);
-        user3Total += freeTicket.balanceOf(user3, 6);
+        assertEq(ticket.balanceOf(user3, 4), 1, "User3 should have 1 ticket with ID 4");
+        assertEq(ticket.balanceOf(user3, 5), 1, "User3 should have 1 ticket with ID 5");
+        assertEq(ticket.balanceOf(user3, 6), 1, "User3 should have 1 ticket with ID 6");
+        user3Total += ticket.balanceOf(user3, 4);
+        user3Total += ticket.balanceOf(user3, 5);
+        user3Total += ticket.balanceOf(user3, 6);
 
         // Assert that users don't have tokens they shouldn't have
-        assertEq(freeTicket.balanceOf(user1, 2), 0, "User1 should not have a ticket with ID 2");
-        assertEq(freeTicket.balanceOf(user2, 1), 0, "User2 should not have a ticket with ID 1");
-        assertEq(freeTicket.balanceOf(user2, 4), 0, "User2 should not have a ticket with ID 4");
-        assertEq(freeTicket.balanceOf(user3, 1), 0, "User3 should not have a ticket with ID 1");
-        assertEq(freeTicket.balanceOf(user3, 3), 0, "User3 should not have a ticket with ID 3");
+        assertEq(ticket.balanceOf(user1, 2), 0, "User1 should not have a ticket with ID 2");
+        assertEq(ticket.balanceOf(user2, 1), 0, "User2 should not have a ticket with ID 1");
+        assertEq(ticket.balanceOf(user2, 4), 0, "User2 should not have a ticket with ID 4");
+        assertEq(ticket.balanceOf(user3, 1), 0, "User3 should not have a ticket with ID 1");
+        assertEq(ticket.balanceOf(user3, 3), 0, "User3 should not have a ticket with ID 3");
 
         // Assert total balances
         assertEq(user1Total, 1, "User1 should have 1 ticket in total");
@@ -91,9 +97,9 @@ contract TicketTest is Test {
         assertEq(user3Total, 3, "User3 should have 3 tickets in total");
 
         // Assert next token ID
-        assertEq(freeTicket.nextTokenId(), 7, "Next token ID should be 7");
+        assertEq(ticket.nextTokenId(), 7, "Next token ID should be 7");
 
         // Assert current supply
-        assertEq(freeTicket.currentSupply(), 6, "Current supply should be 6");
+        assertEq(ticket.currentSupply(), 6, "Current supply should be 6");
     }
 }
