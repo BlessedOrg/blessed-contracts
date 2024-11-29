@@ -11,11 +11,18 @@ contract DeployEvent is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
+//        Library.Stakeholder[] memory initialStakeholders = new Library.Stakeholder[](1);
+//        initialStakeholders[0] = Library.Stakeholder(payable(deployer), 10000); // 100% fee to start
+//
+//        Library.StakeholdersConstructor memory stakeholdersConfig = Library.StakeholdersConstructor(initialStakeholders);
+
+
         Event eventContract = new Event(
             deployer,
             deployer,
             "Event",
             "https://blessed.fan/example"
+//            stakeholdersConfig
         );
 
         vm.stopBroadcast();

@@ -43,10 +43,18 @@ contract Ticket is Base, ERC1155, ERC1155Burnable, ERC1155Supply {
         bool status;
     }
 
-    event SupplyUpdated(uint256 newSupply);
+    Library.Stakeholder[] public stakeholders;
+    uint256 public totalFeePercentage;
+    bool public stakeholdersLocked;
+    uint256 public stakeholdersCounter;
 
-    constructor
-    (Library.TicketConstructor memory config)
+    event SupplyUpdated(uint256 newSupply);
+    event StakeholderAdded(address wallet, uint256 feePercentage);
+    event StakeholderUpdated(address wallet, uint256 feePercentage);
+    event StakeholderRemoved(address wallet);
+    event StakeholdersLocked();
+
+    constructor(Library.TicketConstructor memory config)
     Base(config._owner, config._ownerSmartWallet, config._name)
     ERC1155(config._baseURI) {
         require(config._initialSupply <= config._maxSupply, "Initial supply exceeds max supply");
@@ -62,6 +70,15 @@ contract Ticket is Base, ERC1155, ERC1155Burnable, ERC1155Supply {
         currentSupply = config._initialSupply;
         transferable = config._transferable;
         whitelistOnly = config._whitelistOnly;
+
+        for (uint i = 0; i < config._stakeholders.length; i++) {
+            _addStakeholder(
+                config._stakeholders[i].wallet,
+                config._stakeholders[i].feePercentage
+            );
+        }
+
+        stakeholdersCounter = config._stakeholders.length;
     }
 
     function setURI(string memory newuri) public onlyOwner {
@@ -90,7 +107,54 @@ contract Ticket is Base, ERC1155, ERC1155Burnable, ERC1155Supply {
         transferable = _transferable;
     }
 
+    function _addStakeholder(address payable _wallet, uint256 _feePercentage) internal {
+        require(_feePercentage > 0 && _feePercentage <= 10000, "Invalid fee percentage");
+        require(totalFeePercentage + _feePercentage <= 10000, "Total fee percentage exceeds 100%");
+
+        for (uint i = 0; i < stakeholders.length; i++) {
+            require(stakeholders[i].wallet != _wallet, "Stakeholder already exists");
+        }
+
+        stakeholders.push(Library.Stakeholder(_wallet, _feePercentage));
+        totalFeePercentage += _feePercentage;
+        emit StakeholderAdded(_wallet, _feePercentage);
+    }
+
+    function addStakeholder(address payable _wallet, uint256 _feePercentage) public onlyOwner {
+        require(!stakeholdersLocked, "Stakeholders are locked");
+        _addStakeholder(_wallet, _feePercentage);
+    }
+
+    function updateStakeholder(uint256 _index, uint256 _feePercentage) public onlyOwner {
+        require(!stakeholdersLocked, "Stakeholders are locked");
+        require(_index < stakeholders.length, "Invalid stakeholder index");
+        require(_feePercentage > 0 && _feePercentage <= 10000, "Invalid fee percentage");
+
+        uint256 oldFeePercentage = stakeholders[_index].feePercentage;
+        require(totalFeePercentage - oldFeePercentage + _feePercentage <= 10000, "Total fee percentage exceeds 100%");
+
+        stakeholders[_index].feePercentage = _feePercentage;
+        totalFeePercentage = totalFeePercentage - oldFeePercentage + _feePercentage;
+        emit StakeholderUpdated(stakeholders[_index].wallet, _feePercentage);
+    }
+
+    function removeStakeholder(uint256 _index) public onlyOwner {
+        require(!stakeholdersLocked, "Stakeholders are locked");
+        require(_index < stakeholders.length, "Invalid stakeholder index");
+
+        totalFeePercentage -= stakeholders[_index].feePercentage;
+        emit StakeholderRemoved(stakeholders[_index].wallet);
+
+        stakeholders[_index] = stakeholders[stakeholders.length - 1];
+        stakeholders.pop();
+    }
+
     function get() external {
+        if (!stakeholdersLocked && nextTokenId > 1) {
+            stakeholdersLocked = true;
+            emit StakeholdersLocked();
+        }
+
         address caller = msg.sender;
 
         if (price == 0) {
@@ -102,9 +166,32 @@ contract Ticket is Base, ERC1155, ERC1155Burnable, ERC1155Supply {
             uint256 allowedAmount = erc20Token.allowance(caller, address(this));
             require(allowedAmount >= price, "Insufficient allowance");
 
-            require(erc20Token.transferFrom(caller, ownerSmartWallet, price), "Transfer failed");
+            require(erc20Token.transferFrom(caller, address(this), price), "Transfer failed");
+
+            uint256 remainingAmount = price;
+            for (uint i = 0; i < stakeholders.length; i++) {
+                uint256 stakeholderFee = (price * stakeholders[i].feePercentage) / 10000;
+                if (stakeholderFee > 0) {
+                    require(erc20Token.transfer(stakeholders[i].wallet, stakeholderFee), "Stakeholder fee transfer failed");
+                    remainingAmount -= stakeholderFee;
+                }
+            }
+
+            if (remainingAmount > 0) {
+                require(erc20Token.transfer(ownerSmartWallet, remainingAmount), "Owner transfer failed");
+            }
+
             _mint(caller, nextTokenId, 1, "");
         }
+        nextTokenId++;
+    }
+
+    function verifyFiatPurchase() external {
+        if (!stakeholdersLocked && nextTokenId > 1) {
+            stakeholdersLocked = true;
+            emit StakeholdersLocked();
+        }
+        _mint(msg.sender, nextTokenId, 1, "");
         nextTokenId++;
     }
 
