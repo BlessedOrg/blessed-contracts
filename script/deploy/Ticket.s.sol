@@ -10,8 +10,8 @@ contract DeployTicket is Script {
         address deployer = vm.addr(deployerPrivateKey);
 
         // Addresses to whitelist and distribute tickets to
-        // address wallet1 = 0x1234567890123456789012345678901234567890; // Replace with actual address
-        // address wallet2 = 0x0987654321098765432109876543210987654321; // Replace with actual address
+         address wallet1 = 0x1234567890123456789012345678901234567890; // Replace with actual address
+         address wallet2 = 0x0987654321098765432109876543210987654321; // Replace with actual address
 
         // Chain ID for Base Sepolia
         uint256 baseSepolia = 84532;
@@ -21,6 +21,9 @@ contract DeployTicket is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
+        Library.Stakeholder[] memory initialStakeholders = new Library.Stakeholder[](2);
+        initialStakeholders[0] = Library.Stakeholder(payable(wallet1), 500); // 5% fee
+        initialStakeholders[1] = Library.Stakeholder(payable(wallet2), 300); // 3% fee
 
         Library.TicketConstructor memory config = Library.TicketConstructor({
             _owner: deployer,
@@ -34,7 +37,8 @@ contract DeployTicket is Script {
             _initialSupply: 10000,
             _maxSupply: 100000,
             _transferable: true,  // Set transferable to true
-            _whitelistOnly: true   // Set whitelistOnly to true
+            _whitelistOnly: true,   // Set whitelistOnly to true
+            _stakeholders: initialStakeholders
         });
 
         // Deploy the contract with the config struct

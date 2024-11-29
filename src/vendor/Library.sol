@@ -2,6 +2,15 @@
 pragma solidity ^0.8.13;
 
 contract Library {
+    struct Stakeholder {
+        address payable wallet;
+        uint256 feePercentage;
+    }
+
+    struct StakeholdersConstructor {
+        Stakeholder[] _stakeholders;
+    }
+
     struct TicketConstructor {
         address _owner;
         address _ownerSmartWallet;
@@ -15,5 +24,6 @@ contract Library {
         uint256 _maxSupply;
         bool _transferable;
         bool _whitelistOnly;
+        Stakeholder[] _stakeholders;
     }
 }

@@ -19,6 +19,12 @@ contract TicketTest is Test {
 
         vm.startPrank(owner);  // Set msg.sender to owner for the next calls
 
+        address wallet1 = 0x1234567890123456789012345678901234567890;
+        address wallet2 = 0x0987654321098765432109876543210987654321;
+        Library.Stakeholder[] memory initialStakeholders = new Library.Stakeholder[](2);
+        initialStakeholders[0] = Library.Stakeholder(payable(wallet1), 500); // 5% fee
+        initialStakeholders[1] = Library.Stakeholder(payable(wallet2), 300); // 3% fee
+
         Library.TicketConstructor memory config = Library.TicketConstructor({
             _owner: owner,
             _ownerSmartWallet: owner,
@@ -31,7 +37,8 @@ contract TicketTest is Test {
             _initialSupply: 0,  // Set initialSupply to 0 for this test
             _maxSupply: 10000,
             _transferable: true,  // Set transferable to true
-            _whitelistOnly: true   // Set whitelistOnly to true
+            _whitelistOnly: true,   // Set whitelistOnly to true
+            _stakeholders: initialStakeholders
         });
 
         // Deploy the contract with the config struct
