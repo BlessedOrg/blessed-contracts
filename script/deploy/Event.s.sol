@@ -9,24 +9,26 @@ contract DeployEvent is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
+        // Generate a random address for the initial bouncer
+        uint256 randomPrivateKey = uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao)));
+        address randomBouncer = vm.addr(randomPrivateKey);
+
         vm.startBroadcast(deployerPrivateKey);
 
-//        Library.Stakeholder[] memory initialStakeholders = new Library.Stakeholder[](1);
-//        initialStakeholders[0] = Library.Stakeholder(payable(deployer), 10000); // 100% fee to start
-//
-//        Library.StakeholdersConstructor memory stakeholdersConfig = Library.StakeholdersConstructor(initialStakeholders);
-
+        address[] memory initialBouncers = new address[](1);
+        initialBouncers[0] = randomBouncer; // Use the random address as the initial bouncer
 
         Event eventContract = new Event(
             deployer,
             deployer,
             "Event",
-            "https://blessed.fan/example"
-//            stakeholdersConfig
+            "https://blessed.fan/example",
+            initialBouncers
         );
 
         vm.stopBroadcast();
 
-        console.log("USDC deployed at:", address(eventContract));
+        console.log("Event contract deployed at:", address(eventContract));
+        console.log("Initial bouncer address:", randomBouncer);
     }
 }
