@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../interfaces/IERC20.sol";
-import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import "../lib/openzeppelin-contracts/contracts/metatx/ERC2771Context.sol";
-import "../lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
-import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
-import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
-import "../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import "../../interfaces/IERC20.sol";
+import "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import "../../lib/openzeppelin-contracts/contracts/metatx/ERC2771Context.sol";
+import "../../lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
+import "../../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
+import "../../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
+import "../../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "../../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import "./Base.sol";
-import "./vendor/Library.sol";
+import "./Library.sol";
 import "forge-std/console.sol";
 
 // 🏗️ it may be deleted or used as a replacement of our Base contract (so we can include stakeholders in the Event contract as well)

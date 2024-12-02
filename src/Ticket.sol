@@ -9,11 +9,12 @@ import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155
 import "../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
-import "./Base.sol";
+import "./vendor/Base.sol";
 import "./vendor/Library.sol";
+import "./vendor/ReclaimBase.sol";
 import "forge-std/console.sol";
 
-contract Ticket is Base, ERC1155, ERC1155Burnable, ERC1155Supply {
+contract Ticket is Base, ERC1155, ERC1155Burnable, ERC1155Supply, ReclaimBase {
     using EnumerableSet for EnumerableSet.UintSet;
     using EnumerableSet for EnumerableSet.AddressSet;
     using Strings for uint256;
@@ -53,6 +54,7 @@ contract Ticket is Base, ERC1155, ERC1155Burnable, ERC1155Supply {
     event StakeholderUpdated(address wallet, uint256 feePercentage);
     event StakeholderRemoved(address wallet);
     event StakeholdersLocked();
+    event MintedFromProof(uint256 timestamp, address userSmartWalletAddress);
 
     constructor(Library.TicketConstructor memory config)
     Base(config._owner, config._ownerSmartWallet, config._name)
@@ -149,24 +151,35 @@ contract Ticket is Base, ERC1155, ERC1155Burnable, ERC1155Supply {
         stakeholders.pop();
     }
 
+    function _checkWhitelist(address recipient) internal view {
+        if (whitelistOnly) {
+            require(isWhitelisted[recipient], "Recipient not whitelisted");
+        }
+    }
+
+    function _checkSupply(uint256 amount) internal view {
+        require(currentSupply >= amount, "Exceeds current supply");
+        require(currentSupply + amount <= maxSupply, "Exceeds max supply");
+    }
+
     function get() external {
         if (!stakeholdersLocked && nextTokenId > 1) {
             stakeholdersLocked = true;
             emit StakeholdersLocked();
         }
-
-        address caller = msg.sender;
+        _checkWhitelist(msg.sender);
+        _checkSupply(1);
 
         if (price == 0) {
-            _mint(caller, nextTokenId, 1, "");
+            mint(msg.sender);
         } else {
-            uint256 callerBalance = erc20Token.balanceOf(caller);
+            uint256 callerBalance = erc20Token.balanceOf(msg.sender);
             require(callerBalance >= price, "Insufficient balance");
 
-            uint256 allowedAmount = erc20Token.allowance(caller, address(this));
+            uint256 allowedAmount = erc20Token.allowance(msg.sender, address(this));
             require(allowedAmount >= price, "Insufficient allowance");
 
-            require(erc20Token.transferFrom(caller, address(this), price), "Transfer failed");
+            require(erc20Token.transferFrom(msg.sender, address(this), price), "Transfer failed");
 
             uint256 remainingAmount = price;
             for (uint i = 0; i < stakeholders.length; i++) {
@@ -181,31 +194,42 @@ contract Ticket is Base, ERC1155, ERC1155Burnable, ERC1155Supply {
                 require(erc20Token.transfer(ownerSmartWallet, remainingAmount), "Owner transfer failed");
             }
 
-            _mint(caller, nextTokenId, 1, "");
+            mint(msg.sender);
         }
         nextTokenId++;
     }
 
-    function verifyFiatPurchase() external {
+    function mint(address recipient) internal {
         if (!stakeholdersLocked && nextTokenId > 1) {
             stakeholdersLocked = true;
             emit StakeholdersLocked();
         }
-        _mint(msg.sender, nextTokenId, 1, "");
+        _mint(recipient, nextTokenId, 1, "");
         nextTokenId++;
+    }
+
+    function verifyProofAndMint(Proof memory proof) public {
+        try IReclaimVerifier(0xF90085f5Fd1a3bEb8678623409b3811eCeC5f6A5).verifyProof(proof) {
+            string memory context = proof.claimInfo.context;
+            string memory userSmartWalletAddressString = extractFieldFromContext(context, '"userSmartWalletAddress":"');
+            address userSmartWalletAddress = stringToAddress(userSmartWalletAddressString);
+            _checkWhitelist(userSmartWalletAddress);
+            _checkSupply(1);
+            mint(userSmartWalletAddress);
+            emit MintedFromProof(block.timestamp, userSmartWalletAddress);
+        } catch {
+            revert("Proof verification failed");
+        }
     }
 
     function distribute(Distribution[] memory _distributions) public onlyOwner {
         uint256 amountToBeDistributed = 0;
         for (uint256 i = 0; i < _distributions.length; i++) {
             Distribution memory dist = _distributions[i];
-            if (whitelistOnly) {
-                require(isWhitelisted[dist.recipient], "Recipient not whitelisted");
-            }
+            _checkWhitelist(dist.recipient);
             amountToBeDistributed += dist.amount;
         }
-        require(currentSupply >= amountToBeDistributed, "Exceeds current supply");
-        require(currentSupply + amountToBeDistributed <= maxSupply, "Exceeds max supply");
+        _checkSupply(amountToBeDistributed);
 
         for (uint256 i = 0; i < _distributions.length; i++) {
             Distribution memory dist = _distributions[i];
@@ -214,11 +238,10 @@ contract Ticket is Base, ERC1155, ERC1155Burnable, ERC1155Supply {
         currentSupply -= amountToBeDistributed;
     }
 
-    function _mintSequential(address to, uint256 amount) internal {
+    function _mintSequential(address recipient, uint256 amount) internal {
         for (uint256 i = 0; i < amount; i++) {
-            _mint(to, nextTokenId, 1, "");
-            console.log("Minted token ID", nextTokenId, "to", to);
-            nextTokenId++;
+            mint(recipient);
+            console.log("Minted token ID", nextTokenId, "to", recipient);
         }
     }
 
