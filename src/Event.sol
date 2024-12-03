@@ -6,7 +6,7 @@ import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import "../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 import "../lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
 import "../lib/openzeppelin-contracts/contracts/metatx/ERC2771Context.sol";
-import "./Base.sol";
+import "./vendor/Base.sol";
 
 contract Event is Base {
     string public uri;
