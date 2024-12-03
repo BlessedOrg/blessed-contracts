@@ -17,13 +17,11 @@ contract Event is Base {
     mapping(address => bool) public bouncers;
 
     struct Entry {
-        address wallet;
         uint256 timestamp;
         uint256 ticketId;
         address ticketAddress;
     }
-
-    Entry[] public entries;
+    mapping(address => Entry) public entries;
 
     event Entrance(address indexed attendeeAddress, uint256 timestamp, uint256 ticketId, address ticketAddress);
     event TicketAdded(address indexed ticketAddress);
@@ -77,12 +75,19 @@ contract Event is Base {
         require(!isEventFinished, "Event has finished");
         require(!usedTickets[_ticketAddress][_ticketId], "This ticket has been already used");
         require(tickets[_ticketAddress], "Invalid ticket address");
+        require(!hasEntry(_attendeeAddress), "Attendee has already entered");
 
         IERC1155 nftContract = IERC1155(_ticketAddress);
         require(nftContract.balanceOf(_attendeeAddress, _ticketId) > 0, "Attendee does not own this ticket");
 
-        entries.push(Entry(_attendeeAddress, block.timestamp, _ticketId, _ticketAddress));
+
+        entries[_attendeeAddress] = Entry({
+            timestamp: block.timestamp,
+            ticketId: _ticketId,
+            ticketAddress: _ticketAddress
+        });
         usedTickets[_ticketAddress][_ticketId] = true;
+
         emit Entrance(_attendeeAddress, block.timestamp, _ticketId, _ticketAddress);
     }
 
@@ -90,12 +95,16 @@ contract Event is Base {
         return usedTickets[_ticketAddress][_ticketId];
     }
 
+    function getEntry(address _attendee) external view returns (Entry memory) {
+        return entries[_attendee];
+    }
+
+    function hasEntry(address _attendee) public view returns (bool) {
+        return entries[_attendee].timestamp != 0 || entries[_attendee].ticketId != 0 || entries[_attendee].ticketAddress != address(0);
+    }
+
     function finishEvent() external onlyOwner {
         isEventFinished = true;
         emit EventFinished(block.timestamp);
-    }
-
-    function getEntries() external view returns (Entry[] memory) {
-        return entries;
     }
 }
