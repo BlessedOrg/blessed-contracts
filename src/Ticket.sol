@@ -54,7 +54,7 @@ contract Ticket is Base, ERC1155, ERC1155Burnable, ERC1155Supply, ReclaimBase {
     event StakeholderUpdated(address wallet, uint256 feePercentage);
     event StakeholderRemoved(address wallet);
     event StakeholdersLocked();
-    event MintedFromProof(uint256 timestamp, address userSmartWalletAddress);
+    event MintedFromProof(uint256 timestamp, address userSmartWalletAddress, string context, string userSmartWalletAddressFromContext);
 
     constructor(Library.TicketConstructor memory config)
     Base(config._owner, config._ownerSmartWallet, config._name)
@@ -216,7 +216,7 @@ contract Ticket is Base, ERC1155, ERC1155Burnable, ERC1155Supply, ReclaimBase {
             _checkWhitelist(userSmartWalletAddress);
             _checkSupply(1);
             mint(userSmartWalletAddress);
-            emit MintedFromProof(block.timestamp, userSmartWalletAddress);
+            emit MintedFromProof(block.timestamp, userSmartWalletAddress, context, userSmartWalletAddressString);
         } catch {
             revert("Proof verification failed");
         }

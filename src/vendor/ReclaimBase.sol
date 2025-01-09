@@ -41,44 +41,48 @@ interface IReclaimVerifier {
 }
 
 contract ReclaimBase {
-    function stringToAddress(string memory _addressString) public pure returns (address) {
-        bytes memory _addressBytes = bytes(_addressString);
+    function stringToAddress(string memory _address) public pure returns (address) {
+        bytes memory tempBytes = bytes(_address);
+        require(tempBytes.length == 42, "Invalid address length");
 
-        // Check if the string has the correct length for an Ethereum address (42 characters, including '0x')
-        require(_addressBytes.length == 42, "Invalid address length");
-
-        // Check if the string starts with '0x'
-        require(_addressBytes[0] == '0' && _addressBytes[1] == 'x', "Address must start with 0x");
-
-        // Convert the string to bytes32
-        bytes32 _parsedBytes;
-        assembly {
-            _parsedBytes := mload(add(_addressBytes, 32))
+        bytes20 addrBytes;
+        for (uint i = 2; i < 42; i++) {
+            uint8 digit = uint8(tempBytes[i]);
+            if (digit >= 48 && digit <= 57) {
+                digit -= 48;
+            } else if (digit >= 65 && digit <= 70) {
+                digit -= 55;
+            } else if (digit >= 97 && digit <= 102) {
+                digit -= 87;
+            } else {
+                revert("Invalid address character");
+            }
+            addrBytes |= bytes20(uint160(digit) << (4 * uint160(41 - i)));
         }
 
-        // Convert bytes32 to address
-        return address(uint160(uint256(_parsedBytes)));
+        return address(uint160(addrBytes));
     }
 
-    function extractFieldFromContext(string memory _data, string memory target) public pure returns (string memory) {
-        bytes memory dataBytes = bytes(_data);
+    function extractFieldFromContext(
+        string memory data,
+        string memory target
+    ) public pure returns (string memory) {
+        bytes memory dataBytes = bytes(data);
         bytes memory targetBytes = bytes(target);
 
-        require(
-            dataBytes.length >= targetBytes.length,
-            "target is longer than data"
-        );
-
-        uint256 start = 0;
+        require(dataBytes.length >= targetBytes.length, "target is longer than data");
+        uint start = 0;
         bool foundStart = false;
 
-        for (uint256 i = 0; i <= dataBytes.length - targetBytes.length; i++) {
+        for (uint i = 0; i <= dataBytes.length - targetBytes.length; i++) {
             bool isMatch = true;
-            for (uint256 j = 0; j < targetBytes.length && isMatch; j++) {
+
+            for (uint j = 0; j < targetBytes.length && isMatch; j++) {
                 if (dataBytes[i + j] != targetBytes[j]) {
                     isMatch = false;
                 }
             }
+
             if (isMatch) {
                 start = i + targetBytes.length;
                 foundStart = true;
@@ -90,20 +94,20 @@ contract ReclaimBase {
             return "";
         }
 
-        uint256 end = start;
+        uint end = start;
         while (
             end < dataBytes.length &&
-            !(dataBytes[end] == '"' && (end == 0 || dataBytes[end - 1] != "\\"))
+            !(dataBytes[end] == '"' && dataBytes[end - 1] != "\\")
         ) {
             end++;
         }
 
-        if (end <= start) {
+        if (end <= start || !(dataBytes[end] == '"' && dataBytes[end - 1] != "\\")) {
             return "";
         }
 
         bytes memory contextMessage = new bytes(end - start);
-        for (uint256 i = start; i < end; i++) {
+        for (uint i = start; i < end; i++) {
             contextMessage[i - start] = dataBytes[i];
         }
         return string(contextMessage);
