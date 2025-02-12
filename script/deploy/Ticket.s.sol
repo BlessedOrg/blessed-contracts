@@ -13,12 +13,6 @@ contract DeployTicket is Script {
          address wallet1 = 0x1234567890123456789012345678901234567890; // Replace with actual address
          address wallet2 = 0x0987654321098765432109876543210987654321; // Replace with actual address
 
-        // Chain ID for Base Sepolia
-        uint256 baseSepolia = 84532;
-
-        // Ensure we're on the correct network
-        require(block.chainid == baseSepolia, "Not on Base Sepolia");
-
         vm.startBroadcast(deployerPrivateKey);
 
         Library.Stakeholder[] memory initialStakeholders = new Library.Stakeholder[](2);

@@ -1,24 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/console.sol";
-import "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import "../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import "../lib/openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
-import "../lib/openzeppelin-contracts/contracts/metatx/ERC2771Context.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import "./vendor/Base.sol";
 
 contract Event is Base {
     string public uri;
     mapping(address => bool) public tickets;
+    mapping(uint256 => address) public ticketsAddresses;
     uint256 public ticketCounter;
     bool public isEventFinished;
     mapping(address => mapping(uint256 => bool)) private usedTickets;
     mapping(address => bool) public bouncers;
 
     struct Entry {
-        uint256 timestamp;
-        uint256 ticketId;
+        uint64 timestamp;
+        uint64 ticketId;
         address ticketAddress;
     }
     mapping(address => Entry) public entries;
@@ -37,9 +37,11 @@ contract Event is Base {
         address[] memory _initialBouncers
     ) Base(_owner, _ownerSmartWallet, _name) {
         uri = _uri;
-        for (uint i = 0; i < _initialBouncers.length; i++) {
+        require(_initialBouncers.length > 0, "No initial bouncers provided");
+        for (uint256 i = 0; i < _initialBouncers.length; ) {
             bouncers[_initialBouncers[i]] = true;
             emit BouncerAdded(_initialBouncers[i]);
+            unchecked { ++i; }
         }
     }
 
@@ -48,15 +50,16 @@ contract Event is Base {
         _;
     }
 
-    function setURI(string memory _uri) public onlyOwner {
+    function setURI(string calldata _uri) public onlyOwner {
         uri = _uri;
     }
 
-    function addTicket(address ticket) public onlyOwner {
-        require(!tickets[ticket], "Ticket already added");
-        tickets[ticket] = true;
+    function addTicket(address _newTicket) public onlyOwner {
+        require(!tickets[_newTicket], "Ticket already added");
+        tickets[_newTicket] = true;
         ticketCounter++;
-        emit TicketAdded(ticket);
+        ticketsAddresses[ticketCounter] = _newTicket;
+        emit TicketAdded(_newTicket);
     }
 
     function addBouncer(address _bouncer) public onlyOwner {
@@ -80,10 +83,9 @@ contract Event is Base {
         IERC1155 nftContract = IERC1155(_ticketAddress);
         require(nftContract.balanceOf(_attendeeAddress, _ticketId) > 0, "Attendee does not own this ticket");
 
-
         entries[_attendeeAddress] = Entry({
-            timestamp: block.timestamp,
-            ticketId: _ticketId,
+            timestamp: uint64(block.timestamp),
+            ticketId: uint64(_ticketId),
             ticketAddress: _ticketAddress
         });
         usedTickets[_ticketAddress][_ticketId] = true;

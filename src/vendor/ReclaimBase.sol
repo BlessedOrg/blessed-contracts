@@ -1,40 +1,40 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../../interfaces/IERC20.sol";
-import "../../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import "../../lib/openzeppelin-contracts/contracts/metatx/ERC2771Context.sol";
-import "../../lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
-import "../../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
-import "../../lib/openzeppelin-contracts/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
-import "../../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
-import "../../lib/openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/metatx/ERC2771Context.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
+import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./Base.sol";
 import "./Library.sol";
 import "forge-std/console.sol";
 
-struct ClaimInfo {
-    string provider;
-    string parameters;
-    string context;
-}
+    struct ClaimInfo {
+        string provider;
+        string parameters;
+        string context;
+    }
 
-struct Claim {
-    bytes32 identifier;
-    address owner;
-    uint32 timestampS;
-    uint32 epoch;
-}
+    struct Claim {
+        bytes32 identifier;
+        address owner;
+        uint32 timestampS;
+        uint32 epoch;
+    }
 
-struct SignedClaim {
-    Claim claim;
-    bytes[] signatures;
-}
+    struct SignedClaim {
+        Claim claim;
+        bytes[] signatures;
+    }
 
-struct Proof {
-    ClaimInfo claimInfo;
-    SignedClaim signedClaim;
-}
+    struct Proof {
+        ClaimInfo claimInfo;
+        SignedClaim signedClaim;
+    }
 
 interface IReclaimVerifier {
     function verifyProof(Proof memory proof) external view;
