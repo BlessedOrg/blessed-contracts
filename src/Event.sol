@@ -17,8 +17,8 @@ contract Event is Base {
     mapping(address => bool) public bouncers;
 
     struct Entry {
-        uint64 timestamp;
-        uint64 ticketId;
+        uint256 timestamp;
+        uint256 ticketId;
         address ticketAddress;
     }
     mapping(address => Entry) public entries;
@@ -84,8 +84,8 @@ contract Event is Base {
         require(nftContract.balanceOf(_attendeeAddress, _ticketId) > 0, "Attendee does not own this ticket");
 
         entries[_attendeeAddress] = Entry({
-            timestamp: uint64(block.timestamp),
-            ticketId: uint64(_ticketId),
+            timestamp: block.timestamp,
+            ticketId: _ticketId,
             ticketAddress: _ticketAddress
         });
         usedTickets[_ticketAddress][_ticketId] = true;

@@ -1,6 +1,6 @@
 # Assuming your folder structure is:
 #
-#           $your_parent_folder
+#            $your_parent_folder
 #           /        |         \
 # $we_are_here blessed-api  blessed-subgraph
 

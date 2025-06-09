@@ -15,28 +15,29 @@ import "./vendor/Base.sol";
 import "./vendor/Library.sol";
 import "./vendor/ReclaimBase.sol";
 
-error InsufficientBalance(uint256 required, uint256 available);
-error InvalidSupply(uint256 requested, uint256 maximum);
-error ZeroAddress();
-error InvalidFeePercentage(uint256 fee);
-error StakeholdersAreLocked();
-error TokenIdOverflow();
-error TransfersNotAllowed();
-error NotWhitelisted(address user);
-error ExceedsMaxSupply(uint256 requested, uint256 maximum);
-error EmptyDistributions();
-error StakeholderAlreadyExists(address wallet);
-error ArrayLengthMismatch();
-error InvalidStakeholderIndex(uint256 index, uint256 length);
+    error InsufficientBalance(uint256 required, uint256 available);
+    error InvalidSupply(uint256 requested, uint256 maximum);
+    error ZeroAddress();
+    error InvalidFeePercentage(uint256 fee);
+    error StakeholdersAreLocked();
+    error TokenIdOverflow();
+    error TransfersNotAllowed();
+    error NotWhitelisted(address user);
+    error ExceedsMaxSupply(uint256 requested, uint256 maximum);
+    error EmptyDistributions();
+    error MaxDistributionsExceeded();
+    error StakeholderAlreadyExists(address wallet);
+    error ArrayLengthMismatch();
+    error InvalidStakeholderIndex(uint256 index, uint256 length);
 
-contract Ticket is 
+contract Ticket is
     ReentrancyGuard,
     Base,
     ReclaimBase,
     ERC1155,
     ERC1155Burnable,
     ERC1155Supply,
-    IERC1155Receiver 
+    IERC1155Receiver
 {
     using EnumerableSet for EnumerableSet.UintSet;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -70,6 +71,8 @@ contract Ticket is
     }
 
     Library.Stakeholder[] public stakeholders;
+    mapping(address => bool) public isStakeholder;
+    uint256 public constant MAX_STAKEHOLDERS = 100;
     uint256 public totalFeePercentage;
     bool public stakeholdersLocked;
     uint256 public stakeholdersCounter;
@@ -88,7 +91,7 @@ contract Ticket is
     event BatchMinted(address indexed to, uint256 amount, uint256 firstTokenId);
     event TransferableStatusUpdated(bool status);
     event WhitelistUpdated(address indexed user, bool status);
-    
+
     constructor(Library.TicketConstructor memory config)
     Base(config._owner, config._ownerSmartWallet, config._name)
     ERC1155(config._baseURI) {
@@ -151,7 +154,7 @@ contract Ticket is
         }
         _checkWhitelist(msg.sender);
         _checkSupply(1);
-        
+
         if (price > 0) {
             if (erc20Token.balanceOf(msg.sender) < price) revert InsufficientBalance(price, erc20Token.balanceOf(msg.sender));
             if (erc20Token.allowance(msg.sender, address(this)) < price) revert InsufficientBalance(price, erc20Token.allowance(msg.sender, address(this)));
@@ -169,11 +172,13 @@ contract Ticket is
             uint256 remainingAmount = currentPrice;
             Library.Stakeholder[] memory _stakeholders = stakeholders;
             uint256 stakeholdersLength = _stakeholders.length;
-            
+
             for (uint256 i; i < stakeholdersLength;) {
-                uint256 stakeholderFee = (currentPrice * _stakeholders[i].feePercentage) / 10000;
+                Library.Stakeholder memory stakeholder = _stakeholders[i];
+                uint256 stakeholderFee = (currentPrice * stakeholder.feePercentage) / 10000;
+
                 if (stakeholderFee > 0) {
-                    erc20Token.safeTransfer(_stakeholders[i].wallet, stakeholderFee);
+                    erc20Token.safeTransfer(stakeholder.wallet, stakeholderFee);
                     remainingAmount -= stakeholderFee;
                 }
                 unchecked { ++i; }
@@ -182,7 +187,8 @@ contract Ticket is
             if (remainingAmount > 0) {
                 erc20Token.safeTransfer(ownerSmartWallet, remainingAmount);
             }
-            
+
+            currentSupply -= 1;
             emit TicketPurchased(price, price - remainingAmount);
         }
     }
@@ -204,6 +210,7 @@ contract Ticket is
     function distribute(Distribution[] calldata _distributions) external onlyOwner {
         uint256 length = _distributions.length;
         if (length == 0) revert EmptyDistributions();
+        if (length >= 100) revert MaxDistributionsExceeded();
 
         uint256 amountToBeDistributed;
         for (uint256 i; i < length;) {
@@ -214,7 +221,7 @@ contract Ticket is
             amountToBeDistributed += dist.amount;
             unchecked { ++i; }
         }
-        
+
         _checkSupply(amountToBeDistributed);
 
         for (uint256 i; i < length;) {
@@ -248,19 +255,39 @@ contract Ticket is
     }
 
     function removeStakeholder(uint256 _index) external onlyOwner {
-        if (stakeholdersLocked) revert StakeholdersAreLocked();
-        if (_index >= stakeholders.length) revert InvalidStakeholderIndex(_index, stakeholders.length);
+        if (_index >= stakeholders.length) {
+            revert InvalidStakeholderIndex(_index, stakeholders.length);
+        }
 
-        totalFeePercentage -= stakeholders[_index].feePercentage;
-        emit StakeholderRemoved(stakeholders[_index].wallet);
+        address wallet = stakeholders[_index].wallet;
+        uint256 fee = stakeholders[_index].feePercentage;
 
-        stakeholders[_index] = stakeholders[stakeholders.length - 1];
+        totalFeePercentage -= fee;
+        isStakeholder[wallet] = false;
+
+        if (_index != stakeholders.length - 1) {
+            stakeholders[_index] = stakeholders[stakeholders.length - 1];
+        }
         stakeholders.pop();
+
+        emit StakeholderRemoved(wallet);
+    }
+
+    function getStakeholder(uint256 index) external view returns (address wallet, uint256 fee) {
+        if (index >= stakeholders.length) {
+            revert InvalidStakeholderIndex(index, stakeholders.length);
+        }
+        Library.Stakeholder memory s = stakeholders[index];
+        return (s.wallet, s.feePercentage);
+    }
+
+    function totalStakeholders() external view returns (uint256) {
+        return stakeholders.length;
     }
 
     function uri(uint256 tokenId) public view virtual override returns (string memory) {
         if (!_exists(tokenId)) revert InvalidSupply(tokenId, 0);
-        return string(abi.encodePacked(super.uri(tokenId), tokenId.toString()));
+        return super.uri(tokenId);
     }
 
     function getTicketHolders(uint256 start, uint256 pageSize) public view returns (address[] memory) {
@@ -278,7 +305,7 @@ contract Ticket is
 
         return holders;
     }
-    
+
     function getTokensByUser(address user) public view returns (uint256[] memory) {
         return userTokens[user].values();
     }
@@ -308,20 +335,25 @@ contract Ticket is
     }
 
     function _addStakeholder(address payable _wallet, uint256 _feePercentage) internal {
-        if (_feePercentage <= 0 || _feePercentage > 10000) revert InvalidFeePercentage(_feePercentage);
-        
-        uint256 newTotalFee = totalFeePercentage + _feePercentage;
-        if (newTotalFee > 10000) revert InvalidFeePercentage(newTotalFee);
-        totalFeePercentage = newTotalFee;
-
-        uint256 stakeholdersLength = stakeholders.length;
-        for (uint256 i; i < stakeholdersLength;) {
-            if (stakeholders[i].wallet == _wallet) revert StakeholderAlreadyExists(_wallet);
-            unchecked { ++i; }
+        if (isStakeholder[_wallet]) {
+            revert StakeholderAlreadyExists(_wallet);
+        }
+        if (stakeholders.length >= 100) {
+            revert ExceedsMaxSupply(stakeholders.length, 100);
+        }
+        if (_feePercentage == 0 || _feePercentage > 10000) {
+            revert InvalidFeePercentage(_feePercentage);
         }
 
+        uint256 newTotalFee = totalFeePercentage + _feePercentage;
+        if (newTotalFee > 10000) {
+            revert InvalidFeePercentage(newTotalFee);
+        }
+
+        isStakeholder[_wallet] = true;
         stakeholders.push(Library.Stakeholder(_wallet, _feePercentage));
-        emit StakeholderAdded(_wallet, _feePercentage);
+        totalFeePercentage = newTotalFee;
+        emit StakeholderAdded(_wallet, _feePercentage); // Maintain event emission
     }
 
     function _checkWhitelist(address recipient) internal view {
@@ -332,7 +364,8 @@ contract Ticket is
 
     function _checkSupply(uint256 amount) internal view {
         if (currentSupply < amount) revert InvalidSupply(amount, currentSupply);
-        if (currentSupply + amount > maxSupply) revert ExceedsMaxSupply(currentSupply + amount, maxSupply);
+        uint256 minted = nextTokenId - 1;
+        if (minted + amount > maxSupply) revert ExceedsMaxSupply(minted + amount, maxSupply);
     }
 
     function _update(address from, address to, uint256[] memory ids, uint256[] memory values) internal override(ERC1155, ERC1155Supply) {
@@ -376,12 +409,12 @@ contract Ticket is
         return totalSupply(tokenId) > 0;
     }
 
-    function supportsInterface(bytes4 interfaceId) 
-        public 
-        view 
-        virtual 
-        override(ERC1155, IERC165) 
-        returns (bool) 
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override(ERC1155, IERC165)
+        returns (bool)
     {
         return super.supportsInterface(interfaceId);
     }
